@@ -31,6 +31,8 @@ import resources
 # Import the code for the dialog
 from seismic_slope_dialog import SeismicSlopeDialog
 import os.path
+import processing
+from tempfile import mkdtemp,TemporaryFile
 
 
 class SeismicSlope:
@@ -165,7 +167,7 @@ class SeismicSlope:
     def initGui(self):
         """Create the menu entries and toolbar icons inside the QGIS GUI."""
 
-        icon_path = ':/plugins/SeismicSlope/icon.png'
+        icon_path = ':/plugins/SeismicSlope/slide_32.png'
         self.add_action(
             icon_path,
             text=self.tr(u'Slope Seismic'),
@@ -194,9 +196,59 @@ class SeismicSlope:
         # See if OK was pressed
         if result:
             index = self.dlg.rasterCombo.currentIndex()
-            layer = self.dlg.rasterCombo.itemData(index)
-            self.iface.messageBar().pushMessage("Layer", layer.name(),
+            rlayer = self.dlg.rasterCombo.itemData(index)
+            shapeFinal = self.dlg.shapeSave.text()
+            self.iface.messageBar().pushMessage("Layer", rlayer.name(),
                                            level=QgsMessageBar.WARNING)
-            # Do something useful here - delete the line containing pass and
-            # substitute with your code.
-            pass
+            if not rlayer.isValid():
+                self.iface.messageBar().pushMessage("ERROR:", rlayer.name()+' is not valid',
+                                                    level=QgsMessageBar.ERROR)
+            directory_temp = mkdtemp(prefix='seismic_')
+            # calculating the slope
+            outRaster = processing.runalg("gdalogr:slope",
+                                          rlayer, 1, True, True, False, 1.0,
+                                          os.path.join(
+                                              directory_temp,'slope.tif'
+                                          ))
+            # slope selection
+            outSelection = processing.runalg('gdalogr:rastercalculator',
+                                     outRaster['OUTPUT'], '1',  # A
+                                     None, '1',  # B
+                                     None, '1',  # C
+                                     None, '1',  # D
+                                     None, '1',  # E
+                                     None, '1',  # F
+                                     '1*(A>15.0)',  # formula
+                                     '-9999',
+                                     5,
+                                     None,
+                                     os.path.join(directory_temp,'sel.tif'))
+            #sieve -- aggregating data
+            outSieve = processing.runalg('gdalogr:sieve',
+                                     outSelection['OUTPUT'],
+                                     20,
+                                     0,
+                                     os.path.join(directory_temp,'sieve.tif')
+                                     )
+            # outNodata = processing.runalg('gdalogr:translate',
+            #                               outSieve['OUTPUT'],
+            #
+            #                               )
+            #convert raster to vector
+            outVector=processing.runalg('gdalogr:polygonize',
+                                        outSieve['OUTPUT'],
+                                        'DN',
+                                        shapeFinal
+                                        #os.path.join(directory_temp,'final.shp')
+                                        )
+
+            #TODO -- add layer
+            if self.dlg.autoload.isChecked():
+                from qgis._core import QgsMapLayerRegistry,QgsRasterLayer,QgsVectorLayer
+                shpName = os.path.basename(shapeFinal)
+                vlayer = QgsVectorLayer(shapeFinal, shpName, "ogr")
+                QgsMapLayerRegistry.instance().addMapLayer(vlayer)
+
+
+
+

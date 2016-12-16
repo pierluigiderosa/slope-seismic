@@ -11,7 +11,7 @@ name=Seismic slope tool
 qgisMinimumVersion=2.10
 description=QGIS tool for locate unstable zone for 1 level of seismic microzonation
 
-version=0.1
+version=0.2
 author=Pierluigi De Rosa
 email=pierluigi.derosa@gfosservices.it
 

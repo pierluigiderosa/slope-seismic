@@ -42,12 +42,14 @@ class SeismicSlopeDialog(QtGui.QDialog, FORM_CLASS):
         # self.<objectname>, and you can use autoconnect slots - see
         # http://qt-project.org/doc/qt-4.8/designer-using-a-ui-file.html
         # #widgets-and-dialogs-with-auto-connect
+        #self.shapeButton.clicked.connect(self.writeTxt)
         self.setupUi(self)
         self.setup_gui()
 
 
     def setup_gui(self):
         """ Function to combos creation """
+        self.shapeButton.clicked.connect(self.writeTxt)
         self.rasterCombo.clear()
         layers = QgsMapLayerRegistry.instance().mapLayers().values()
         layerRasters = []
@@ -57,5 +59,11 @@ class SeismicSlopeDialog(QtGui.QDialog, FORM_CLASS):
                 self.rasterCombo.addItem(layer.name(), layer)
 
 
-
+    def writeTxt(self):
+        """Function to writhe the path for shapefile"""
+        fileName = QtGui.QFileDialog.getSaveFileName(self, 'Save SHP file',
+                                               "", ".shp (*.shp);;All files (*)")
+        fileName = os.path.splitext(str(fileName))[0] + '.shp'
+        self.shapeSave.setText(fileName)
+        self.textfile = fileName
 
